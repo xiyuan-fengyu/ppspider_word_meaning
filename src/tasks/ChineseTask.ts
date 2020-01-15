@@ -1,33 +1,30 @@
-import {AddToQueue, appInfo, FromQueue, Job, OnStart, RequestUtil} from "ppspider";
+import {AddToQueue, appInfo, FromQueue, Job, NoFilter, OnStart, RequestUtil} from "ppspider";
 import * as Cheerio from "cheerio";
 import * as fs from "fs";
 
 export class ChineseTask {
 
-    @OnStart({urls: "https://www.zdic.net/hans/%E4%BA%BA"})
+    @OnStart({urls: ""})
+    @AddToQueue({name: "chinese_characters", filterType: NoFilter})
+    async addAllChineseCharacters() {
+        const characters = [];
+        for (let c = '一'.charCodeAt(0), end = '龥'.charCodeAt(0); c <= end; c++) {
+            characters.push(`https://www.zdic.net/hans/${encodeURIComponent(String.fromCharCode(c))}`);
+        }
+        return characters;
+    }
+
     @FromQueue({name: "chinese_characters", parallel: 2, exeInterval: 500})
-    @AddToQueue([
-        {name: "chinese_characters"},
-        {name: "chinese_words"}
-    ])
+    @AddToQueue({name: "chinese_words"})
     async character(job: Job) {
         const $ = await ChineseTask.getHtml(job.url);
-        const addToQueue = {
-            chinese_characters: [],
-            chinese_words: []
-        };
+        const chinese_words = [];
         // await FileUtil.write(appInfo.workplace + "/character.html", $("html").html());
         $(".crefe a[href^='/hans/']").each((index, ele) => {
-            const $ele = $(ele);
-            const text = $ele.text().trim();
-            if (text.length) {
-                addToQueue.chinese_words.push(`https://www.zdic.net/hans/${encodeURIComponent(text)}`);
-                for (let c of text) {
-                    addToQueue.chinese_characters.push(`https://www.zdic.net/hans/${encodeURIComponent(c)}`);
-                }
-            }
+            const text = $(ele).text().trim();
+            text.length && chinese_words.push(`https://www.zdic.net/hans/${encodeURIComponent(text)}`);
         });
-        return addToQueue;
+        return chinese_words;
     }
 
     @FromQueue({name: "chinese_words", parallel: 2, exeInterval: 500})
